@@ -1,0 +1,264 @@
+---
+title: "Predicting Airline Passengers' Satisfaction"
+filters:
+  - social-share
+format: 
+  html:
+    toc: true
+
+editor: visual
+---
+
+![](images/Machine.jfif){fig-align="right" width="298"}
+
+```{r, Library, echo=FALSE, warning=FALSE, message=FALSE}
+
+library(readr)
+library(DiagrammeR)
+library(tidyverse)
+library(report)
+library(gtsummary)
+library(caret)
+library(e1071)
+library(sjPlot)
+library(performance)
+library(ggstatsplot)
+library(SmartEDA)
+library(dlookr)
+library(lme4)
+library(lmerTest)
+library(neuralnet)
+library(DataExplorer)
+library(rpivotTable)
+library(ConfusionTableR)
+library(reshape)
+library(mlbench)
+library(Boruta)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(flextable)
+library(readr)
+Capd <- read_csv("Capd.csv")
+
+
+```
+
+## **Material and Methodology**
+
+A secondary data-set from the [`Kaggle`](https://www.kaggle.com/datasets/mysarahmadbhat/airline-passenger-satisfaction) data platform was used to predict airline passengers' satisfaction using machine algorithms Random Forest classifier the Datasets were partitioned into training and testing, 70% of the data was retained as a training set while 30% was considered as a testing set.
+
+## ***Read Data File***
+
+```{r, echo=T, warning=FALSE, message=FALSE}
+library(readr)
+Capd <- read_csv("Capd.csv")
+```
+
+## ***In this stage the data were reprocessed***
+
+```{r}
+# Capd %>% na.omit() # Removing missing values in the dataset 
+# 
+# # Converting data types using the following methods below
+# Capd$Gender <- as.factor(Capd$Gender)
+# Capd$customer_type <-  as.factor(Capd$customer_type)
+# Capd$type_of_travel <- as.factor(Capd$type_of_travel)
+# Capd$customer_class <- as.factor(Capd$customer_class)
+# Capd$flight_distance <- as.integer (Capd$flight_distance)
+# Capd$inflight_wifi_service <- as.factor(Capd$inflight_wifi_service)
+# Capd$ease_of_online_booking <- as.factor(Capd$ease_of_online_booking)
+# Capd$gate_location <- as.factor(Capd$food_and_drink)
+# Capd$food_and_drink <- as.factor(Capd$food_and_drink)
+# Capd$online_boarding <- as.factor(Capd$online_boarding)
+# Capd$seat_comfort <- as.factor(Capd$seat_comfort)
+# Capd$inflight_entertainment <- as.factor(Capd$inflight_entertainment)
+# Capd$onboard_service <- as.factor(Capd$onboard_service)
+# Capd$leg_room_service <- as.factor(Capd$leg_room_service)
+# Capd$baggage_handling <- as.factor(Capd$baggage_handling)
+# Capd$checkin_service <- as.factor(Capd$checkin_service)
+# Capd$inflight_service <- as.factor(Capd$inflight_service)
+# Capd$cleanliness <- as.integer (Capd$departure_delay_in_minutes)
+# Capd$departure_delay_in_minutes <- as.integer(Capd$departure_delay_in_minutes)
+# Capd$arrival_delay_in_minutes <- as.integer(Capd$arrival_delay_in_minutes)
+# Capd$satisfaction <- as.factor(Capd$satisfaction)
+
+
+
+```
+
+\## ***Diagram presentation***
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+DiagrammeR::grViz("digraph
+                  { 
+                  PredictiveVariabel [layout = dot, rank = RR]
+                  node [ shape = rectangle]
+                  
+                  1 [label = 'Dependent Variable']
+                  2 [label = 'Satisfaction']
+                  3 [label = 'Customer_type ']
+                  4 [label = 'Age']
+                  5 [label = 'Type_of_travel']
+                  6 [label = 'Customer_class']
+                  7 [label = 'flight_distance']
+                  8 [label = 'Gender']
+                 
+                  
+                  1-> 2->3
+                  2 ->4
+                  2 -> 5
+                  2 -> 6
+                  2 ->7 
+                  2 -> 8}", height = 200)
+```
+
+***Table 1: Demo-graphical Characteristics of study participants***
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+Capd %>% 
+  select(Gender,customer_type, customer_class) %>%  tbl_summary()
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Capd %>% 
+#   select(
+# inflight_wifi_service,departure_arrival_time_convenient,ease_of_online_booking, gate_location,food_and_drink) %>% tbl_summary()
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Capd %>% 
+#   select(online_boarding,seat_comfort,inflight_entertainment,onboard_service,leg_room_service,baggage_handling,checkin_service,inflight_service)%>% tbl_summary()
+
+```
+
+```{r}
+Capd %>% 
+  select(age,flight_distance,cleanliness,departure_delay_in_minutes,arrival_delay_in_minutes) %>% 
+na.omit() %>%  report_parameters() 
+```
+
+<center>
+
+```{r}
+tab_xtab(var.row = Capd$Gender, 
+         var.col = Capd$customer_type,
+         show.row.prc = T)
+```
+
+</center>
+
+<center>
+
+```{r}
+tab_xtab(var.row = Capd$Gender, 
+         var.col = Capd$type_of_travel,
+         show.row.prc = T)
+```
+
+</center>
+
+<center>
+
+```{r}
+tab_xtab(var.row = Capd$Gender, 
+         var.col = Capd$customer_class,
+         show.row.prc = T)
+```
+
+</center>
+
+![](images/paste-F83E974B.png){fig-align="center"}
+
+## *Feature Selection*
+
+```{r}
+#FS <- Boruta(satisfaction~., data = Capd, doTrace =2)
+```
+
+## ***Data Partition in to training and testing***
+
+```{r}
+set.seed(1234) # A Random Sampling with replacement 
+
+#Data Partition in to trainign and testing 
+
+# Model <- sample(2, nrow(Capd), replace = T, prob = c(0.7, 0.3))
+# train <- Capd[Model ==1,]
+# test <- Capd[Model ==2,]
+```
+
+## ***Building/Developing the models using Decision Tree***
+
+```{r}
+# Random Forest Model
+# set.seed(333)
+# as.data.frame(Capd) # we converted the data in to datafarme 
+# 
+# rf23 <-randomForest(satisfaction~., data = train, method = "class", na.action=na.exclude)
+
+
+
+```
+
+## ***Training the Model***
+
+```{r}
+# # Prediction & Confusion Matrix - Test
+# p <- predict(rf23, train)
+# confusionMatrix(p, train$satisfaction)
+```
+
+<center>***Training the Model*** ![Training the Model](images/paste-099CBA9E.png)</center>
+
+## ***Evaluating the Model***
+
+```{r}
+# p2 <- predict(rf23, test)
+# confusionMatrix(p2, test$satisfaction)
+```
+
+<center>***Evaluating the Model*** ![Test Classification](images/paste-81234BAA.png)</center>
+
+```{r}
+# ConfusionTableR::binary_visualiseR(train_labels = train$satisfaction,
+#                                    truth_labels= train$satisfaction,
+#                                    class_label1 = "Not satisfied", 
+#                                    class_label2 = "Satisfied",
+#                                    quadrant_col1 = "#28ACB4", 
+#                                    quadrant_col2 = "#4397D2", 
+#                                    custom_title = "Confusion Metric on Airline P", 
+#                                    text_col= "black")
+```
+
+<center>![Train-set Classification](images/paste-86290EF3.png)</center>
+
+```{r}
+# ConfusionTableR::binary_visualiseR(train_labels = test$satisfaction,
+#                                    truth_labels= test$satisfaction,
+#                                    class_label1 = "Not satisfied", 
+#                                    class_label2 = "Satisfied",
+#                                    quadrant_col1 = "#28ACB4", 
+#                                    quadrant_col2 = "#4397D2", 
+#                                    custom_title = "Confusion Metric on Airline P", 
+#                                    text_col= "black")
+```
+
+<center>![Testing set the Model](images/paste-FED09A67.png)</center>
+
+## **Result**
+
+The demographical profiles of the airline passengers; 65899(51%) were females while 63981(49%) were males. Customer class, 62160 (48%) were business class, 58309 (45%) were Economic class and 9411(7.2%) were Economic plus class. The mean age of the airline passengers was 39.4 years with a standard deviation of 15. The average flight distance was 1190.2 miles The overall accuracy of the model was found to be 95% with a sensitivity of 97% and specificity of 93%
+
+## **Conclusion**
+
+Most of the customers were unsatisfied with the airline service. Therefore based on these findings, the Random-Forest algorism predicated 57%  at 95%  accuracy with a sensitivity of 97% and specificity of 93% that the participants were not satisfied with the daily operation of the airline industry, especially in the areas involved in Air travelers purchasing ticket/booking online, values added services such, In-flight Wi-Fi service check-in in service, Baggage handling, in-flight entertainments, customer service quality, timely departure time, safety, customer service solutions, price, website ease of use.
+
+## **Recommendation**
+
+Considering that 57% of participants reported not being satisfied with airline service rendered this is a significant proportion that may significantly decrease the daily, weekly or monthly income revenues generated. Therefore, this study recommends that the airline industry should endeavor to improve daily operation services, especially in the areas of travelers purchasing tickets/booking online, value-added services such, as In-flight Wi-Fi service, check-in service, Baggage handling, inflight entertainment, customer service quality, timely departure time, safety, customer service solutions, price, website ease of use. This will increase the volume of patronage and, as a result, boost their market share and hence profitability.
+
+```{=html}
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7746988053497189"
+     crossorigin="anonymous"></script>
+```
